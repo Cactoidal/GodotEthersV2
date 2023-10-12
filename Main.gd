@@ -12,12 +12,15 @@ var sepolia_rpc = "https://ethereum-sepolia.publicnode.com"
 
 var color_chain_contract = "0x7321F4C834b368b7e4eFaF5A9381F77F906AcDF1"
 
+
+var tx_count 
+var gas_price
 var confirmation_timer = 0
 var tx_ongoing = false
 
 func _ready():
 	#$Send.connect("pressed", self, "send_color")
-	$Send.connect("pressed", self, "new_send_color")
+	$Send.connect("pressed", self, "start_with_get_tx_count")
 	$Copy.connect("pressed", self, "copy_address")
 	$GetGas.connect("pressed", self, "open_faucet")
 	#$Refresh.connect("pressed", self, "new_check_color")
@@ -139,6 +142,8 @@ func set_balance(var balance):
 var http_request_delete_balance
 var http_request_delete_tx_read
 var http_request_delete_tx_write
+var http_request_delete_gas
+var http_request_delete_count
 
 func new_get_balance():
 	var http_request = HTTPRequest.new()
@@ -245,6 +250,70 @@ func check_color_attempted(result, response_code, headers, body):
 
 
 
+
+
+
+func start_with_get_tx_count():
+	var http_request = HTTPRequest.new()
+	$Container.add_child(http_request)
+	http_request_delete_count = http_request
+	http_request.connect("request_completed", self, "get_tx_count_attempted")
+	
+	var tx = {"jsonrpc": "2.0", "method": "eth_getTransactionCount", "params": [user_address, "latest"], "id": 7}
+	
+	var error = http_request.request(sepolia_rpc, 
+	[], 
+	true, 
+	HTTPClient.METHOD_POST, 
+	JSON.print(tx))
+	
+
+func get_tx_count_attempted(result, response_code, headers, body):
+	
+	var get_result = parse_json(body.get_string_from_ascii())
+	
+	if response_code == 200:
+		$Send.text = "Confirming..."
+		var count = get_result["result"].hex_to_int()
+		tx_count = count
+	else:
+		$GasBalance.text = "CHECK RPC"
+	http_request_delete_count.queue_free()
+	estimate_gas()
+
+
+func estimate_gas():
+	var http_request = HTTPRequest.new()
+	$Container.add_child(http_request)
+	http_request_delete_gas = http_request
+	http_request.connect("request_completed", self, "estimate_gas_attempted")
+	
+	var tx = {"jsonrpc": "2.0", "method": "eth_gasPrice", "params": [], "id": 7}
+	
+	var error = http_request.request(sepolia_rpc, 
+	[], 
+	true, 
+	HTTPClient.METHOD_POST, 
+	JSON.print(tx))
+	
+
+func estimate_gas_attempted(result, response_code, headers, body):
+	
+	var get_result = parse_json(body.get_string_from_ascii())
+	
+	if response_code == 200:
+		var estimate = get_result["result"].hex_to_int()
+		gas_price = int(float(estimate) * 1.12)
+	else:
+		$GasBalance.text = "CHECK RPC"
+	http_request_delete_gas.queue_free()
+	new_send_color()
+
+
+
+
+
+
 func new_send_color():
 	
 	new_get_balance()
@@ -264,7 +333,7 @@ func new_send_color():
 			file.open("user://keystore", File.READ)
 			var content = file.get_buffer(32)
 			file.close()
-			ColorChain.new_send_color(content, sepolia_id, color_chain_contract, sepolia_rpc, r, g, b, self)
+			ColorChain.new_send_color(content, sepolia_id, color_chain_contract, sepolia_rpc, r, g, b, gas_price, tx_count, self)
 		
 		else:
 			$Send.text = "Error (Pick New Color)"
@@ -295,7 +364,6 @@ func send_color_attempted(result, response_code, headers, body):
 	if response_code == 200:
 		tx_ongoing = true
 		confirmation_timer = 8
-		$Send.text = "Confirming..."
 	else:
 		$Send.text = "TX ERROR"
 	
