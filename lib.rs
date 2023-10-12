@@ -155,7 +155,7 @@ NewFuture(Ok(()))
 
 #[method]
 #[tokio::main]
-async fn new_send_color(key: PoolArray<u8>, chain_id: u64, chain_color_contract: GodotString, rpc: GodotString, _r: u64, _g: u64, _b: u64, ui_node: Ref<Control>) -> NewFuture {
+async fn new_send_color(key: PoolArray<u8>, chain_id: u64, chain_color_contract: GodotString, rpc: GodotString, _r: u64, _g: u64, _b: u64, _gas_fee: u64, _count: u64, ui_node: Ref<Control>) -> NewFuture {
 
 let vec = &key.to_vec();
 
@@ -176,17 +176,15 @@ let contract = ColorChainABI::new(contract_address.clone(), Arc::new(client.clon
 
 let calldata = contract.set_color(_r.into(), _g.into(), _b.into()).calldata().unwrap();
 
-let gas_fee: u64 = 150000000000;
-
 let tx = Eip1559TransactionRequest::new()
     .from(user_address)
     .to(contract_address) 
     .value(0)
     .gas(100000)
-    .max_fee_per_gas(gas_fee)
-    .max_priority_fee_per_gas(gas_fee)
+    .max_fee_per_gas(_gas_fee)
+    .max_priority_fee_per_gas(_gas_fee)
     .chain_id(chain_id)
-    .nonce(1)
+    .nonce(_count)
     .data(calldata);
 
 let typed_tx: TypedTransaction = TypedTransaction::Eip1559(tx.clone());
