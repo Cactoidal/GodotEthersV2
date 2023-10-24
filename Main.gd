@@ -19,18 +19,14 @@ var confirmation_timer = 0
 var tx_ongoing = false
 
 func _ready():
-	#$Send.connect("pressed", self, "send_color")
 	$Send.connect("pressed", self, "start_with_get_tx_count")
 	$Copy.connect("pressed", self, "copy_address")
 	$GetGas.connect("pressed", self, "open_faucet")
-	#$Refresh.connect("pressed", self, "new_check_color")
 	$Refresh.connect("pressed", self, "new_get_balance")
-	#$Refresh.connect("pressed", self, "refresh_balance")
 	check_keystore()
 	get_address()
 	new_get_balance()
 	new_check_color()
-	#check_color()
 
 func _process(delta):
 	if confirmation_timer > 0:
@@ -55,86 +51,11 @@ func get_address():
 	$Address.text = user_address
 	file.close()
 
-func refresh_balance():
-	ColorChain.get_balance(user_address, sepolia_rpc, self)
-
 func copy_address():
 	OS.set_clipboard(user_address)
 
 func open_faucet():
 	OS.shell_open("https://sepolia-faucet.pk910.de")
-	
-func send_color():
-	new_get_balance()
-	if tx_ongoing == false && user_balance != "0":
-		var sent_color = $ColorPicker.color
-		var r = int(stepify(sent_color.r,0.001) * 1000)
-		var g = int(stepify(sent_color.g,0.001) * 1000)
-		var b = int(stepify(sent_color.b,0.001) * 1000)
-		
-		if [r,g,b] != block_color:
-			
-			print("Sending color:")
-			print([r,g,b])
-		
-			var file = File.new()
-			file.open("user://keystore", File.READ)
-			var content = file.get_buffer(32)
-			file.close()
-			#var success = ColorChain.new_send_color(content, sepolia_id, color_chain_contract, sepolia_rpc, r, g, b)
-			var success = ColorChain.send_color(content, sepolia_id, color_chain_contract, sepolia_rpc, r, g, b)
-			if success:
-				tx_ongoing = true
-				confirmation_timer = 8
-				$Send.text = "Confirming..."
-			else:
-				$Send.text = "TX ERROR"
-		else:
-			$Send.text = "Error (Pick New Color)"
-			
-
-func check_color():
-	var file = File.new()
-	file.open("user://keystore", File.READ)
-	var content = file.get_buffer(32)
-	file.close()
-	var success = ColorChain.get_color(content, sepolia_id, color_chain_contract, sepolia_rpc, self)
-	if success:
-		pass
-	else:
-		confirmation_timer = 4
-
-
-
-#Called from Rust	
-
-func set_color(var chain_color):
-	var new_color = parse_json(chain_color)
-	print("Raw JSON:")
-	print(new_color)
-	
-	var compare = [new_color["r"].hex_to_int(), new_color["g"].hex_to_int(), new_color["b"].hex_to_int()]
-	
-	if compare != block_color:
-		print("New Color:")
-		print(compare)
-		block_color = compare.duplicate()
-		var material_color = Color(float(compare[0]) / 1000, float(compare[1]) / 1000, float(compare[2]) / 1000, 1)
-		$Block.get_active_material(0).albedo_color = material_color
-		confirmation_timer = 0
-		tx_ongoing = false
-		$Send.text = "Send Color"
-	else:
-		confirmation_timer = 4
-
-func set_balance(var balance):
-	user_balance = balance
-	$GasBalance.text = balance
-
-
-
-
-
 
 
 # # #    N E W    # # # 
@@ -223,13 +144,6 @@ func check_color_attempted(result, response_code, headers, body):
 			color_value.erase(0,padding_length)
 			compare.push_back( ("".join(["0x", color_value])).hex_to_int() )
 		
-		
-#		for color_value in [_r, _g, _b]:
-#			color_value.erase(0,61)
-#			if color_value[0] == "0":
-#				color_value.erase(0,1)
-#			compare.push_back( ("".join(["0x", color_value])).hex_to_int() )
-
 		if compare != block_color:
 			print("New Color:")
 			print(compare)
@@ -338,6 +252,7 @@ func new_send_color():
 		else:
 			$Send.text = "Error (Pick New Color)"
 
+#Called from Rust	
 func set_signed_data(var signature):
 	var http_request = HTTPRequest.new()
 	$Container.add_child(http_request)
