@@ -1,2 +1,2 @@
 # GodotEthersV2
-Transactions no longer lag the game.  Achieved by formatting the transactions in Rust and sending them in gdscript using HTTPRequest.
+Transactions no longer lag the game.  Achieved by formatting calldata in Rust and sending transactions in gdscript using HTTPRequest.
